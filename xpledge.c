@@ -35,6 +35,7 @@ is_syscall_blocked(int syscall)
     return blocked_syscalls[syscall];
 }
 
+
 static long
 set_xpledge(int kinds)
 {
@@ -63,6 +64,7 @@ set_xpledge(int kinds)
     return 0;
 }
 
+
 int
 main(int argc, char **argv)
 {
@@ -71,14 +73,14 @@ main(int argc, char **argv)
     pid_t pid = fork();
     switch (pid)
     {
-    case -1:  /* error */
-        FATAL("%s", strerror(errno));
-    case 0:  /* child */
-        ptrace(PTRACE_TRACEME, 0, 0, 0);
-        /* Because we're now a tracee, execvp will block until the parent
-         * attaches and allows us to continue. */
-        execvp(argv[1], argv + 1);
-        FATAL("%s", strerror(errno));
+        case -1: /* error */
+            FATAL("%s", strerror(errno));
+        case 0: /* child */
+            ptrace(PTRACE_TRACEME, 0, 0, 0);
+            /* Because we're now a tracee, execvp will block until the parent
+             * attaches and allows us to continue. */
+            execvp(argv[1], argv + 1);
+            FATAL("%s", strerror(errno));
     }
 
     /* parent */
@@ -88,42 +90,47 @@ main(int argc, char **argv)
     for (;;)
     {
         /* Enter next system call */
-        if (ptrace(PTRACE_SYSCALL, pid, 0, 0) == -1 && errno != 0) FATAL("%s", strerror(errno));
+        if (ptrace(PTRACE_SYSCALL, pid, 0, 0) == -1 && errno != 0)
+            FATAL("%s", strerror(errno));
         if (waitpid(pid, 0, 0) == -1) FATAL("%s", strerror(errno));
 
         /* Gather system call arguments */
         struct user_regs_struct regs;
-        if (ptrace(PTRACE_GETREGS, pid, 0, &regs) == -1 && errno != 0) FATAL("%s", strerror(errno));
+        if (ptrace(PTRACE_GETREGS, pid, 0, &regs) == -1 && errno != 0)
+            FATAL("%s", strerror(errno));
 
         if (is_syscall_blocked(regs.orig_rax))
         {
             regs.orig_rax = -1;  // set to invalid system call
-            if (ptrace(PTRACE_SETREGS, pid, 0, &regs) == -1) FATAL("%s", strerror(errno));
+            if (ptrace(PTRACE_SETREGS, pid, 0, &regs) == -1)
+                FATAL("%s", strerror(errno));
         }
 
         /* Special handling per system call (entrance) */
         switch (regs.orig_rax)
         {
-        case SYS_exit: exit(regs.rdi);
-        case SYS_exit_group: exit(regs.rdi);
-        case SYS_xpledge: set_xpledge(regs.rdi); break;
+            case SYS_exit: exit(regs.rdi);
+            case SYS_exit_group: exit(regs.rdi);
+            case SYS_xpledge: set_xpledge(regs.rdi); break;
         }
 
         /* Run system call and stop on exit */
-        if (ptrace(PTRACE_SYSCALL, pid, 0, 0) == -1 && errno != 0) FATAL("%s", strerror(errno));
-        if (waitpid(pid, 0, 0) == -1)  FATAL("%s", strerror(errno));
+        if (ptrace(PTRACE_SYSCALL, pid, 0, 0) == -1 && errno != 0)
+            FATAL("%s", strerror(errno));
+        if (waitpid(pid, 0, 0) == -1) FATAL("%s", strerror(errno));
 
         /* Special handling per system call (exit) */
         switch (regs.orig_rax)
         {
-        case -1:
-            if (ptrace(PTRACE_POKEUSER, pid, RAX * sizeof(long), -EPERM) == -1 && errno != 0)
-                FATAL("%s", strerror(errno));
-            break;
-        case SYS_xpledge:
-            if (ptrace(PTRACE_POKEUSER, pid, RAX * sizeof(long), 0) == -1 && errno != 0)
-                FATAL("%s", strerror(errno));
-            break;
+            case -1:
+                if (ptrace(PTRACE_POKEUSER, pid, RAX * sizeof(long), -EPERM) == -1 && errno != 0)
+                    FATAL("%s", strerror(errno));
+                break;
+            case SYS_xpledge:
+                if (ptrace(PTRACE_POKEUSER, pid, RAX * sizeof(long), 0) == -1 && errno != 0)
+                    FATAL("%s", strerror(errno));
+                break;
         }
     }
 }
+

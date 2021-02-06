@@ -29,15 +29,16 @@ main(int argc, char **argv)
     if (argc <= 1) FATAL("too few arguments: %d", argc);
 
     pid_t pid = fork();
-    switch (pid) {
-    case -1:  /* error */
-        FATAL("%s", strerror(errno));
-    case 0:  /* child */
-        ptrace(PTRACE_TRACEME, 0, 0, 0);
-        /* Because we're now a tracee, execvp will block until the parent
-         * attaches and allows us to continue. */
-        execvp(argv[1], argv + 1);
-        FATAL("%s", strerror(errno));
+    switch (pid)
+    {
+        case -1: /* error */
+            FATAL("%s", strerror(errno));
+        case 0: /* child */
+            ptrace(PTRACE_TRACEME, 0, 0, 0);
+            /* Because we're now a tracee, execvp will block until the parent
+             * attaches and allows us to continue. */
+            execvp(argv[1], argv + 1);
+            FATAL("%s", strerror(errno));
     }
 
     /* parent */
@@ -80,3 +81,4 @@ main(int argc, char **argv)
         fprintf(stderr, " = %ld\n", (long)regs.rax);
     }
 }
+
